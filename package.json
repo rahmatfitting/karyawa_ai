@@ -25,6 +25,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^16.4.7",
     "framer-motion": "^11.13.1",
     "grammy": "^1.33.0",
     "ioredis": "^5.4.2",

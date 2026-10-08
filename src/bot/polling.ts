@@ -1,6 +1,12 @@
-import dotenv from 'dotenv'
-dotenv.config({ path: '.env.local' })
-dotenv.config({ path: '.env' })
+import fs from 'fs'
+
+// Native Node.js env loader without external dependencies
+try {
+  if (typeof process.loadEnvFile === 'function') {
+    if (fs.existsSync('.env.local')) process.loadEnvFile('.env.local')
+    if (fs.existsSync('.env')) process.loadEnvFile('.env')
+  }
+} catch {}
 
 import { Bot } from 'grammy'
 import { prisma } from '@/lib/prisma'
