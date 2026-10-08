@@ -2,16 +2,15 @@
 
 import React, { useState, Suspense } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Bot, Lock, Mail, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { Bot, Lock, Mail, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
 
-  const [email, setEmail] = useState('admin@karyawan.ai')
-  const [password, setPassword] = useState('admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,26 +25,20 @@ function LoginForm() {
         redirect: false,
         email: email.trim().toLowerCase(),
         password,
-        callbackUrl,
       })
 
-      if (res?.error) {
-        setError('Email atau password salah. Silakan coba lagi.')
+      if (!res || res.error || !res.ok) {
+        setError('Email atau kata sandi tidak sesuai. Silakan coba lagi.')
         setLoading(false)
-      } else {
-        router.push(callbackUrl)
-        router.refresh()
+        return
       }
+
+      // Hard redirect forces browser to send the freshly set auth cookie directly to server
+      window.location.href = callbackUrl || '/dashboard'
     } catch (err: any) {
-      setError('Terjadi kendala saat login. Silakan hubungi admin.')
+      setError('Terjadi kesalahan saat memproses login. Silakan coba lagi.')
       setLoading(false)
     }
-  }
-
-  const fillDemo = () => {
-    setEmail('admin@karyawan.ai')
-    setPassword('admin123')
-    setError(null)
   }
 
   return (
@@ -57,7 +50,7 @@ function LoginForm() {
       WebkitBackdropFilter: 'blur(24px)',
       border: '1px solid rgba(251, 146, 60, 0.25)',
       borderRadius: 24,
-      padding: '36px 32px',
+      padding: '40px 32px',
       boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(249, 115, 22, 0.1)',
       position: 'relative',
     }}>
@@ -152,7 +145,8 @@ function LoginForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@karyawan.ai"
+              placeholder="Masukkan alamat email"
+              autoComplete="email"
               style={{
                 width: '100%',
                 padding: '13px 14px 13px 42px',
@@ -203,7 +197,8 @@ function LoginForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Masukkan password"
+              autoComplete="current-password"
               style={{
                 width: '100%',
                 padding: '13px 44px 13px 42px',
@@ -286,49 +281,9 @@ function LoginForm() {
         </button>
       </form>
 
-      {/* Demo Quick Fill Helper */}
-      <div style={{
-        marginTop: 24,
-        padding: '12px 14px',
-        borderRadius: 14,
-        background: 'rgba(254, 215, 170, 0.05)',
-        border: '1px dashed rgba(251, 146, 60, 0.3)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 10,
-      }}>
-        <div style={{ fontSize: 12, color: 'rgb(var(--text-secondary))' }}>
-          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Sparkles size={13} color="#f97316" />
-            <span>Akun Default Admin:</span>
-          </div>
-          <div style={{ color: 'rgb(var(--text-muted))', fontSize: 11, marginTop: 2 }}>
-            admin@karyawan.ai • admin123
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={fillDemo}
-          style={{
-            padding: '6px 12px',
-            borderRadius: 8,
-            background: 'rgba(249, 115, 22, 0.18)',
-            border: '1px solid rgba(249, 115, 22, 0.4)',
-            color: '#fb923c',
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Isi Otomatis
-        </button>
-      </div>
-
       {/* Footer Security Badge */}
       <div style={{
-        marginTop: 24,
+        marginTop: 26,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
