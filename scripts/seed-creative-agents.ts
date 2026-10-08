@@ -1,3 +1,7 @@
+import dotenv from 'dotenv'
+dotenv.config({ path: '.env.local' })
+dotenv.config({ path: '.env' })
+
 import { PrismaClient, RiskLevel, SkillPermission, AgentStatus } from '@prisma/client'
 
 const prisma = new PrismaClient()
