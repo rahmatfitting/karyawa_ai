@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard, Users, ListTodo, Zap, CheckSquare,
-  Activity, Settings, Bot, ChevronRight, Bell, Shield
+  Activity, Settings, Bot, ChevronRight, Bell, Shield, LogOut
 } from 'lucide-react'
 
 const navItems = [
@@ -23,6 +24,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const { data: session } = useSession()
 
   return (
     <div className="dashboard-layout">
@@ -196,17 +198,77 @@ export default function DashboardLayout({
               }} />
             </button>
 
-            {/* User avatar */}
+            {/* User profile & Logout */}
             <div style={{
-              width: 38, height: 38,
-              borderRadius: 11,
-              background: 'linear-gradient(135deg, #f97316, #f43f5e)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, fontWeight: 800, color: 'white',
-              cursor: 'pointer',
-              boxShadow: '0 3px 12px rgba(249, 115, 22, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '4px 6px 4px 12px',
+              borderRadius: 14,
+              background: 'rgba(254, 215, 170, 0.05)',
+              border: '1px solid var(--border-subtle)',
             }}>
-              A
+              <div style={{ textAlign: 'right' }}>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: 'rgb(var(--text-primary))',
+                  lineHeight: 1.2,
+                }}>
+                  {session?.user?.name || 'Admin'}
+                </div>
+                <div style={{
+                  fontSize: 10,
+                  color: '#fb923c',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}>
+                  {((session?.user as any)?.role as string) || 'ADMIN'}
+                </div>
+              </div>
+
+              <div style={{
+                width: 32, height: 32,
+                borderRadius: 10,
+                background: 'linear-gradient(135deg, #f97316, #f43f5e)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 800, color: 'white',
+                boxShadow: '0 2px 8px rgba(249, 115, 22, 0.35)',
+              }}>
+                {(session?.user?.name || session?.user?.email || 'A')[0].toUpperCase()}
+              </div>
+
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                title="Keluar / Logout"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 10px',
+                  borderRadius: 10,
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  color: '#f87171',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  marginLeft: 4,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.22)'
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)'
+                }}
+              >
+                <LogOut size={14} />
+                <span>Keluar</span>
+              </button>
             </div>
           </div>
         </header>

@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   keywords: ['AI Workforce', 'AI Employee', 'Digital Office', 'AI Automation'],
 }
 
+import { AuthProvider } from '@/components/providers/AuthProvider'
+
 export default function RootLayout({
   children,
 }: {
@@ -19,20 +21,22 @@ export default function RootLayout({
   return (
     <html lang="id" className="dark">
       <body className={inter.className}>
-        {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: '#2d1b1f',
-              color: '#fff7ed',
-              border: '1px solid rgba(249, 115, 22, 0.4)',
-              boxShadow: '0 8px 24px rgba(249, 115, 22, 0.25)',
-              borderRadius: '12px',
-              fontWeight: 600,
-            },
-          }}
-        />
+        <AuthProvider>
+          {children}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: '#2d1b1f',
+                color: '#fff7ed',
+                border: '1px solid rgba(249, 115, 22, 0.4)',
+                boxShadow: '0 8px 24px rgba(249, 115, 22, 0.25)',
+                borderRadius: '12px',
+                fontWeight: 600,
+              },
+            }}
+          />
+        </AuthProvider>
       </body>
     </html>
   )
