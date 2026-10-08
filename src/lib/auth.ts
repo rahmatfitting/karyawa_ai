@@ -34,9 +34,24 @@ export const authOptions: NextAuthOptions = {
         console.log(`[AUTH] Attempting login for: ${email}`)
 
         try {
-          const user = await prisma.user.findUnique({
+          let user = await prisma.user.findUnique({
             where: { email },
           })
+
+          // Auto-bootstrap: jika user admin@karyawan.ai belum ada di DB, buat otomatis!
+          if (!user && email === 'admin@karyawan.ai') {
+            console.log(`[AUTH] Auto-creating admin user: ${email}`)
+            const newHash = hashPassword('admin123')
+            user = await prisma.user.create({
+              data: {
+                name: 'Administrator',
+                email: 'admin@karyawan.ai',
+                role: 'ADMIN',
+                password: newHash,
+                isActive: true,
+              },
+            })
+          }
 
           if (!user || !user.isActive) {
             console.warn(`[AUTH] User not found or inactive: ${email}`)
@@ -46,21 +61,19 @@ export const authOptions: NextAuthOptions = {
           // Auto-bootstrap: jika password masih null di database dan user memasukkan default "admin123"
           if (!user.password) {
             if (credentials.password === 'admin123') {
-              console.log(`[AUTH] Bootstrapping password for: ${email}`)
+              console.log(`[AUTH] Setting initial password for: ${email}`)
               const newHash = hashPassword('admin123')
-              await prisma.user.update({
+              user = await prisma.user.update({
                 where: { id: user.id },
                 data: { password: newHash },
               })
-              return {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                avatar: user.avatar,
-              }
+            } else {
+              console.warn(`[AUTH] Password is not set and supplied password is not admin123`)
+              return null
             }
-            console.warn(`[AUTH] Password not configured yet for: ${email}`)
+          }
+
+          if (!user.password) {
             return null
           }
 

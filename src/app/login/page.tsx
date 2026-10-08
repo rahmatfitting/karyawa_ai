@@ -7,7 +7,10 @@ import { Bot, Lock, Mail, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle } fr
 
 function LoginForm() {
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  const rawCallback = searchParams.get('callbackUrl')
+  const callbackUrl = (!rawCallback || rawCallback.includes('/login'))
+    ? '/dashboard'
+    : rawCallback
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
