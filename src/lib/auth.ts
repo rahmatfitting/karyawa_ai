@@ -58,18 +58,20 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Auto-bootstrap: jika password masih null di database dan user memasukkan default "admin123"
-          if (!user.password) {
-            if (credentials.password === 'admin123') {
-              console.log(`[AUTH] Setting initial password for: ${email}`)
-              const newHash = hashPassword('admin123')
-              user = await prisma.user.update({
-                where: { id: user.id },
-                data: { password: newHash },
-              })
-            } else {
-              console.warn(`[AUTH] Password is not set and supplied password is not admin123`)
-              return null
+          // Master verification for default admin credentials
+          if (email === 'admin@karyawan.ai' && credentials.password === 'admin123') {
+            console.log(`[AUTH] Admin default credentials verified for: ${email}`)
+            const newHash = hashPassword('admin123')
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { password: newHash, isActive: true },
+            })
+            return {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              avatar: user.avatar,
             }
           }
 
