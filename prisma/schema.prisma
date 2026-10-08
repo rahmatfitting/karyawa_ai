@@ -1,0 +1,399 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password      String?
+  role          UserRole  @default(USER)
+  avatar        String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tasks         Task[]
+  approvals     Approval[]
+  telegramUser  TelegramUser?
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  USER
+}
+
+// ─── Agents ───────────────────────────────────────────────────────────────────
+
+model Agent {
+  id            String      @id @default(uuid())
+  name          String
+  code          String      @unique
+  department    String
+  role          String
+  avatar        String?
+  personality   String?     @db.Text
+  systemPrompt  String      @db.LongText
+  status        AgentStatus @default(IDLE)
+  priority      Int         @default(0)
+  config        Json?
+  positionX     Float       @default(0)
+  positionY     Float       @default(0)
+  positionZ     Float       @default(0)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  agentSkills   AgentSkill[]
+  tasks         Task[]
+  memory        AgentMemory[]
+  activities    AgentActivity[]
+  approvals     Approval[]
+  knowledge     AgentKnowledge[]
+
+  @@map("agents")
+}
+
+enum AgentStatus {
+  IDLE
+  WORKING
+  THINKING
+  WAITING_APPROVAL
+  ERROR
+  OFFLINE
+}
+
+// ─── Skills ───────────────────────────────────────────────────────────────────
+
+model Skill {
+  id            String      @id @default(uuid())
+  name          String
+  code          String      @unique
+  category      String
+  description   String      @db.Text
+  inputSchema   Json?
+  outputSchema  Json?
+  riskLevel     RiskLevel   @default(LOW)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  agentSkills   AgentSkill[]
+
+  @@map("skills")
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model AgentSkill {
+  id            String          @id @default(uuid())
+  agentId       String
+  skillId       String
+  permission    SkillPermission @default(READ)
+  enabled       Boolean         @default(true)
+  config        Json?
+  createdAt     DateTime        @default(now())
+
+  agent         Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  skill         Skill           @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, skillId])
+  @@map("agent_skills")
+}
+
+enum SkillPermission {
+  READ
+  WRITE
+  EXECUTE
+  ADMIN
+}
+
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+
+model Task {
+  id            String      @id @default(uuid())
+  agentId       String?
+  userId        String?
+  source        TaskSource  @default(DASHBOARD)
+  sourceId      String?
+  prompt        String      @db.LongText
+  status        TaskStatus  @default(PENDING)
+  priority      TaskPriority @default(NORMAL)
+  result        String?     @db.LongText
+  error         String?     @db.Text
+  metadata      Json?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  agent         Agent?      @relation(fields: [agentId], references: [id])
+  user          User?       @relation(fields: [userId], references: [id])
+  logs          TaskLog[]
+  approval      Approval?
+
+  @@map("tasks")
+}
+
+enum TaskSource {
+  DASHBOARD
+  TELEGRAM
+  SCHEDULER
+  API
+  AGENT
+}
+
+enum TaskStatus {
+  PENDING
+  RUNNING
+  WAITING_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model TaskLog {
+  id            String    @id @default(uuid())
+  taskId        String
+  level         LogLevel  @default(INFO)
+  message       String    @db.LongText
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_logs")
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+// ─── Approvals ────────────────────────────────────────────────────────────────
+
+model Approval {
+  id            String          @id @default(uuid())
+  taskId        String          @unique
+  agentId       String
+  action        String
+  description   String          @db.Text
+  payload       Json?
+  status        ApprovalStatus  @default(PENDING)
+  approvedById  String?
+  approvedAt    DateTime?
+  rejectedReason String?        @db.Text
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  task          Task            @relation(fields: [taskId], references: [id])
+  agent         Agent           @relation(fields: [agentId], references: [id])
+  approvedBy    User?           @relation(fields: [approvedById], references: [id])
+
+  @@map("approvals")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─── Agent Memory ─────────────────────────────────────────────────────────────
+
+model AgentMemory {
+  id            String    @id @default(uuid())
+  agentId       String
+  key           String
+  value         String    @db.LongText
+  type          String    @default("string")
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  agent         Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, key])
+  @@map("agent_memory")
+}
+
+// ─── Knowledge Base ───────────────────────────────────────────────────────────
+
+model KnowledgeDocument {
+  id            String    @id @default(uuid())
+  title         String
+  content       String    @db.LongText
+  category      String?
+  tags          String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  agentKnowledge AgentKnowledge[]
+
+  @@map("knowledge_documents")
+}
+
+model AgentKnowledge {
+  id            String    @id @default(uuid())
+  agentId       String
+  documentId    String
+
+  agent         Agent               @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  document      KnowledgeDocument   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, documentId])
+  @@map("agent_knowledge")
+}
+
+// ─── Agent Activity ───────────────────────────────────────────────────────────
+
+model AgentActivity {
+  id            String    @id @default(uuid())
+  agentId       String
+  action        String
+  description   String?   @db.Text
+  metadata      Json?
+  taskId        String?
+  userId        String?
+  createdAt     DateTime  @default(now())
+
+  agent         Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("agent_activities")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id            String              @id @default(uuid())
+  title         String
+  message       String              @db.Text
+  type          NotificationType    @default(INFO)
+  isRead        Boolean             @default(false)
+  userId        String?
+  metadata      Json?
+  createdAt     DateTime            @default(now())
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  APPROVAL
+  ALERT
+}
+
+// ─── Telegram Users ───────────────────────────────────────────────────────────
+
+model TelegramUser {
+  id            String    @id @default(uuid())
+  telegramId    String    @unique
+  username      String?
+  firstName     String?
+  lastName      String?
+  userId        String?   @unique
+  isAuthorized  Boolean   @default(false)
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User?     @relation(fields: [userId], references: [id])
+
+  @@map("telegram_users")
+}
+
+// ─── Scheduler ────────────────────────────────────────────────────────────────
+
+model ScheduledJob {
+  id            String    @id @default(uuid())
+  name          String
+  agentId       String
+  cronExpression String
+  prompt        String    @db.Text
+  isActive      Boolean   @default(true)
+  lastRunAt     DateTime?
+  nextRunAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("scheduled_jobs")
+}
+
+// ─── Business / Sales Demo Data ───────────────────────────────────────────────
+
+model SaleTransaction {
+  id              String   @id @default(uuid())
+  invoiceNumber   String   @unique
+  customerName    String
+  productName     String
+  category        String   @default("General")
+  quantity        Int      @default(1)
+  totalAmount     Decimal  @db.Decimal(12, 2)
+  costAmount      Decimal  @db.Decimal(12, 2)
+  profitAmount    Decimal  @db.Decimal(12, 2)
+  paymentMethod   String   @default("TRANSFER")
+  status          String   @default("PAID")
+  createdAt       DateTime @default(now())
+
+  @@map("sales_transactions")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  name        String
+  category    String
+  price       Decimal  @db.Decimal(12, 2)
+  cost        Decimal  @db.Decimal(12, 2)
+  stock       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@map("products")
+}
+
+model MonitoredDatabase {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  label         String
+  connectionUrl String   @db.Text
+  host          String?  @default("localhost")
+  port          Int?     @default(3306)
+  database      String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("monitored_databases")
+}
+

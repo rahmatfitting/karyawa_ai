@@ -1,0 +1,427 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ─── CSS Variables — Warm, Cheerful & Colorful Theme ─────────────── */
+:root {
+  /* Brand Colors (Vibrant Sunset, Tangerine, Berry Rose, Golden Sun) */
+  --brand-primary: 249 115 22;       /* tangerine orange-500 */
+  --brand-secondary: 244 63 94;     /* radiant rose-500 */
+  --brand-accent: 234 179 8;        /* sunny yellow-500 */
+  --brand-pink: 236 72 153;         /* cheerful pink-500 */
+  --brand-emerald: 16 185 129;      /* fresh emerald-500 */
+  --brand-amber: 245 158 11;        /* warm honey amber-500 */
+  
+  /* Background — Warm Rich Cozy Espresso & Terracotta */
+  --bg-base: 28 20 22;              /* #1c1416 - warm cozy espresso */
+  --bg-surface: 42 30 32;           /* #2a1e20 - warm mahogany surface */
+  --bg-elevated: 56 40 42;          /* #38282a - elevated card surface */
+  --bg-glass: rgba(254, 215, 170, 0.06);
+  --bg-glass-hover: rgba(254, 215, 170, 0.12);
+  
+  /* Text — Buttermilk Cream, Warm Peach & Terracotta Muted */
+  --text-primary: 255 248 240;      /* warm cream white */
+  --text-secondary: 254 215 170;    /* warm soft peach */
+  --text-muted: 185 145 135;        /* warm muted terracotta */
+  
+  /* Borders — Warm Golden / Tangerine Glow */
+  --border-subtle: rgba(251, 146, 60, 0.16);
+  --border-default: rgba(251, 146, 60, 0.30);
+  --border-brand: rgba(249, 115, 22, 0.6);
+  
+  /* Status Colors — Joyful & High Contrast */
+  --status-idle: 16 185 129;         /* fresh emerald green */
+  --status-working: 245 158 11;      /* radiant golden amber */
+  --status-thinking: 236 72 153;     /* bright playful pink */
+  --status-waiting: 249 115 22;      /* warm energetic orange */
+  --status-error: 239 68 68;         /* coral strawberry red */
+  --status-offline: 156 122 112;     /* soft warm clay */
+  
+  /* Sidebar */
+  --sidebar-width: 240px;
+}
+
+/* ─── Reset & Base ──────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: rgb(var(--bg-base));
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(249, 115, 22, 0.12) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(244, 63, 94, 0.12) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(234, 179, 8, 0.08) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: rgb(var(--text-primary));
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { 
+  background: rgba(249, 115, 22, 0.35); 
+  border-radius: 4px; 
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(249, 115, 22, 0.65); }
+
+/* ─── Glass Morphism ────────────────────────────────────────────────── */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+}
+
+.glass-elevated {
+  background: rgba(48, 34, 36, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 10px 30px -10px rgba(249, 115, 22, 0.15);
+}
+
+/* ─── Card ──────────────────────────────────────────────────────────── */
+.card {
+  background: rgb(var(--bg-surface));
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 22px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 20px -2px rgba(24, 14, 16, 0.4);
+}
+
+.card:hover {
+  border-color: var(--border-default);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px -4px rgba(249, 115, 22, 0.18);
+}
+
+/* ─── Dashboard Layout ──────────────────────────────────────────────── */
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  min-height: 100vh;
+  background: rgb(var(--bg-surface));
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  box-shadow: 4px 0 24px rgba(18, 10, 12, 0.3);
+}
+
+.main-content {
+  margin-left: var(--sidebar-width);
+  flex: 1;
+  min-height: 100vh;
+  background: transparent;
+}
+
+/* ─── Status Badges — Ceria & Colorful ──────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.status-idle {
+  background: rgba(16, 185, 129, 0.18);
+  color: rgb(52, 211, 153);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.status-working {
+  background: rgba(245, 158, 11, 0.2);
+  color: rgb(251, 191, 36);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.status-thinking {
+  background: rgba(236, 72, 153, 0.2);
+  color: rgb(244, 114, 182);
+  border: 1px solid rgba(236, 72, 153, 0.45);
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.25);
+}
+
+.status-waiting {
+  background: rgba(249, 115, 22, 0.2);
+  color: rgb(251, 146, 60);
+  border: 1px solid rgba(249, 115, 22, 0.45);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.25);
+}
+
+.status-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: rgb(248, 113, 113);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+}
+
+.status-offline {
+  background: rgba(156, 122, 112, 0.2);
+  color: rgb(214, 188, 178);
+  border: 1px solid rgba(156, 122, 112, 0.35);
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.5); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+  100% { transform: scale(0.95); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-8px); }
+}
+
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-slide-in { animation: slideIn 0.3s ease forwards; }
+.animate-fade-in { animation: fadeIn 0.3s ease forwards; }
+
+/* ─── Gradient Text — Warm Ceria Sunset ────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #f97316 0%, #f43f5e 50%, #facc15 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+}
+
+/* ─── Gradient Border ───────────────────────────────────────────────── */
+.gradient-border {
+  position: relative;
+  border-radius: 18px;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.6), rgba(244, 63, 94, 0.6), rgba(234, 179, 8, 0.6));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ─── Buttons — Warm Ceria Interactive ──────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #f97316 0%, #f43f5e 60%, #eab308 100%);
+  background-size: 200% auto;
+  color: #fff;
+  border-color: rgba(251, 146, 60, 0.4);
+  box-shadow: 0 4px 18px rgba(249, 115, 22, 0.35);
+}
+
+.btn-primary:hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(249, 115, 22, 0.5);
+}
+
+.btn-secondary {
+  background: var(--bg-glass);
+  color: rgb(var(--text-primary));
+  border-color: var(--border-default);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-glass-hover);
+  border-color: rgba(249, 115, 22, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: rgb(252, 165, 165);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.32);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+}
+
+.btn-success {
+  background: rgba(16, 185, 129, 0.2);
+  color: rgb(110, 231, 183);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.btn-success:hover {
+  background: rgba(16, 185, 129, 0.32);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+}
+
+/* ─── Input ─────────────────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  padding: 11px 16px;
+  background: rgba(28, 20, 22, 0.7);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  color: rgb(var(--text-primary));
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  border-color: rgba(249, 115, 22, 0.8);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  background: rgba(36, 26, 28, 0.85);
+}
+
+.input::placeholder {
+  color: rgb(var(--text-muted));
+}
+
+/* ─── Typing Indicator ──────────────────────────────────────────────── */
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(249, 115, 22);
+  animation: typing 1.2s infinite;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ─── Skeleton Loading ──────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, rgb(var(--bg-surface)) 25%, rgb(var(--bg-elevated)) 50%, rgb(var(--bg-surface)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 10px;
+}
+
+/* ─── Priority Colors ───────────────────────────────────────────────── */
+.priority-low { color: rgb(185, 145, 135); }
+.priority-normal { color: rgb(251, 146, 60); }
+.priority-high { color: rgb(245, 158, 11); }
+.priority-urgent { color: rgb(244, 63, 94); }
+
+/* ─── Risk Level Colors ─────────────────────────────────────────────── */
+.risk-low { color: rgb(52, 211, 153); }
+.risk-medium { color: rgb(251, 191, 36); }
+.risk-high { color: rgb(249, 115, 22); }
+.risk-critical { color: rgb(244, 63, 94); }
+
+/* ─── Mono Font ─────────────────────────────────────────────────────── */
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ─── Glow Effects — Warm Ceria ─────────────────────────────────────── */
+.glow-warm {
+  box-shadow: 0 0 24px rgba(249, 115, 22, 0.35);
+}
+
+.glow-coral {
+  box-shadow: 0 0 24px rgba(244, 63, 94, 0.35);
+}
+
+.glow-amber {
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.35);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+}
+
+/* ─── Tooltip ───────────────────────────────────────────────────────── */
+.tooltip {
+  position: relative;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgb(56, 40, 42);
+  border: 1px solid var(--border-default);
+  color: rgb(var(--text-primary));
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.tooltip:hover::after {
+  opacity: 1;
+}
