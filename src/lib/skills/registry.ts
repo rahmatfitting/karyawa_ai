@@ -402,11 +402,24 @@ export const skillExecutors: Record<string, SkillExecutor> = {
           const total = Number(totals[0]?.totalSales || 0)
           const count = Number(totals[0]?.count || 0)
           const avg = Number(totals[0]?.avgOrder || 0)
+
+          let monthSales = 0
+          let monthCount = 0
+          try {
+            const [mTotals]: any = await conn.query(
+              'SELECT COUNT(*) as count, COALESCE(SUM(total_idr), 0) as totalSales FROM thjualnota WHERE MONTH(tanggal) = MONTH(CURRENT_DATE()) AND YEAR(tanggal) = YEAR(CURRENT_DATE())'
+            )
+            monthSales = Number(mTotals[0]?.totalSales || 0)
+            monthCount = Number(mTotals[0]?.count || 0)
+          } catch {}
+
           return {
             database: targetDb,
             period: period || 'all',
-            totalTransactions: count,
+            penjualanBulanIni: fmt(monthSales),
+            transaksiBulanIni: monthCount,
             totalSalesFormatted: fmt(total),
+            totalTransactions: count,
             averageOrderValue: fmt(Math.round(avg)),
             recentInvoices: recentInvoices.map((i: any) => ({
               kode: i.kode,
@@ -485,35 +498,85 @@ export const skillExecutors: Record<string, SkillExecutor> = {
   },
   'finance.profit': {
     code: 'finance.profit',
-    description: 'Analisis laba rugi (omset, HPP/modal, laba kotor, dan margin persentase keuntungan)',
+    description: 'Analisis laba rugi (omset, HPP/modal, laba kotor, dan margin persentase keuntungan) dari database bisnis (cvsma_erp, dll)',
     parameters: {
       type: 'object',
       properties: {
         period: { type: 'string', description: 'Periode: "this_month", "all"' },
+        database: { type: 'string', description: 'Nama/slug project database (contoh: "cvsma_erp", "erp_db", "karyawan_ai")' },
       },
     },
-    execute: async ({ period }: { period?: string } = {}) => {
+    execute: async ({ period, database }: { period?: string; database?: string } = {}) => {
       const mysql = await import('mysql2/promise')
-      const url = process.env.TARGET_DATABASE_URL || process.env.DATABASE_URL
-      if (!url) throw new Error('Database URL is not configured')
+      const targetDb = database || undefined
+      const url = await getDatabaseUrl(targetDb)
       const conn = await mysql.createConnection(url)
       try {
-        const [totals]: any = await conn.query(
-          'SELECT COALESCE(SUM(totalAmount), 0) as omset, COALESCE(SUM(costAmount), 0) as modal, COALESCE(SUM(profitAmount), 0) as laba FROM sales_transactions'
-        )
-        const omset = Number(totals[0]?.omset || 0)
-        const modal = Number(totals[0]?.modal || 0)
-        const laba = Number(totals[0]?.laba || 0)
-        const margin = omset > 0 ? ((laba / omset) * 100).toFixed(1) : '0'
-
+        const [tableRows]: any = await conn.query('SHOW TABLES')
+        const allTables: string[] = Array.isArray(tableRows)
+          ? tableRows.map((r: any) => String(Object.values(r)[0] || '').toLowerCase())
+          : []
         const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
+
+        // Case A: ERP Inspira / SIA (thjualnota & thbelinota)
+        if (allTables.includes('thjualnota')) {
+          const [salesRows]: any = await conn.query(
+            'SELECT COALESCE(SUM(total_idr), 0) as omset FROM thjualnota'
+          )
+          let modal = 0
+          if (allTables.includes('thbelinota')) {
+            const [buyRows]: any = await conn.query(
+              'SELECT COALESCE(SUM(total_idr), 0) as modal FROM thbelinota'
+            )
+            modal = Number(buyRows[0]?.modal || 0)
+          } else if (allTables.includes('thbeli')) {
+            const [buyRows]: any = await conn.query(
+              'SELECT COALESCE(SUM(total), 0) as modal FROM thbeli'
+            )
+            modal = Number(buyRows[0]?.modal || 0)
+          } else {
+            modal = Math.round(Number(salesRows[0]?.omset || 0) * 0.7) // estimasi modal 70%
+          }
+
+          const omset = Number(salesRows[0]?.omset || 0)
+          const laba = omset - modal
+          const margin = omset > 0 ? ((laba / omset) * 100).toFixed(1) : '0'
+
+          return {
+            database: targetDb,
+            period: period || 'all',
+            omsetFormatted: fmt(omset),
+            modalHppFormatted: fmt(modal),
+            labaKotorFormatted: fmt(laba),
+            profitMarginPercent: `${margin}%`,
+            summary: `Total omset ${fmt(omset)} dengan beban pembelian/modal ${fmt(modal)}, menghasilkan laba kotor ${fmt(laba)} (margin ${margin}%).`,
+          }
+        }
+
+        // Case B: Default internal Karyawan AI
+        if (allTables.includes('sales_transactions')) {
+          const [totals]: any = await conn.query(
+            'SELECT COALESCE(SUM(totalAmount), 0) as omset, COALESCE(SUM(costAmount), 0) as modal, COALESCE(SUM(profitAmount), 0) as laba FROM sales_transactions'
+          )
+          const omset = Number(totals[0]?.omset || 0)
+          const modal = Number(totals[0]?.modal || 0)
+          const laba = Number(totals[0]?.laba || 0)
+          const margin = omset > 0 ? ((laba / omset) * 100).toFixed(1) : '0'
+
+          return {
+            database: targetDb,
+            period: period || 'this_month',
+            omsetFormatted: fmt(omset),
+            modalHppFormatted: fmt(modal),
+            labaKotorFormatted: fmt(laba),
+            profitMarginPercent: `${margin}%`,
+            summary: `Omset ${fmt(omset)} menghasilkan laba kotor ${fmt(laba)} dengan margin laba ${margin}%.`,
+          }
+        }
+
         return {
-          period: period || 'this_month',
-          omsetFormatted: fmt(omset),
-          modalHppFormatted: fmt(modal),
-          labaKotorFormatted: fmt(laba),
-          profitMarginPercent: `${margin}%`,
-          summary: `Omset ${fmt(omset)} menghasilkan laba kotor ${fmt(laba)} dengan margin laba ${margin}%.`,
+          database: targetDb,
+          message: 'Tabel transaksi laba rugi belum terpetakan. Gunakan database.mysql_query untuk query custom.',
         }
       } finally {
         await conn.end()
@@ -522,26 +585,114 @@ export const skillExecutors: Record<string, SkillExecutor> = {
   },
   'finance.cashflow': {
     code: 'finance.cashflow',
-    description: 'Ringkasan arus kas (cashflow masuk dari penjualan vs estimasi pengeluaran operasional)',
-    parameters: noParams,
-    execute: async () => {
+    description: 'Ringkasan arus kas (cashflow masuk dari penjualan/pembayaran vs pengeluaran operasional/pembelian)',
+    parameters: {
+      type: 'object',
+      properties: {
+        period: { type: 'string', description: 'Periode waktu: "this_month", "all", "today"' },
+        database: { type: 'string', description: 'Nama/slug project database (contoh: "cvsma_erp", "erp_db", "karyawan_ai")' },
+      },
+    },
+    execute: async ({ period, database }: { period?: string; database?: string } = {}) => {
       const mysql = await import('mysql2/promise')
-      const url = process.env.TARGET_DATABASE_URL || process.env.DATABASE_URL
-      if (!url) throw new Error('Database URL is not configured')
+      const targetDb = database || undefined
+      const url = await getDatabaseUrl(targetDb)
       const conn = await mysql.createConnection(url)
       try {
-        const [totals]: any = await conn.query(
-          'SELECT COALESCE(SUM(totalAmount), 0) as cashIn FROM sales_transactions WHERE status = "PAID"'
-        )
-        const cashIn = Number(totals[0]?.cashIn || 0)
-        const estimatedOpEx = Math.round(cashIn * 0.25)
-        const netCash = cashIn - estimatedOpEx
+        const [tableRows]: any = await conn.query('SHOW TABLES')
+        const allTables: string[] = Array.isArray(tableRows)
+          ? tableRows.map((r: any) => String(Object.values(r)[0] || '').toLowerCase())
+          : []
         const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
+
+        // Case A: Inspira ERP / SIA
+        if (allTables.includes('thjualnota')) {
+          let cashIn = 0
+          let cashInThisMonth = 0
+          let cashOut = 0
+          let cashOutThisMonth = 0
+
+          const [salesAll]: any = await conn.query(
+            'SELECT COALESCE(SUM(total_idr), 0) as cashIn FROM thjualnota'
+          )
+          cashIn = Number(salesAll[0]?.cashIn || 0)
+
+          try {
+            const [salesMonth]: any = await conn.query(
+              'SELECT COALESCE(SUM(total_idr), 0) as cashInMonth FROM thjualnota WHERE MONTH(tanggal) = MONTH(CURRENT_DATE()) AND YEAR(tanggal) = YEAR(CURRENT_DATE())'
+            )
+            cashInThisMonth = Number(salesMonth[0]?.cashInMonth || 0)
+          } catch {}
+
+          if (allTables.includes('thbelinota')) {
+            const [buyAll]: any = await conn.query(
+              'SELECT COALESCE(SUM(total_idr), 0) as cashOut FROM thbelinota'
+            )
+            cashOut = Number(buyAll[0]?.cashOut || 0)
+
+            try {
+              const [buyMonth]: any = await conn.query(
+                'SELECT COALESCE(SUM(total_idr), 0) as cashOutMonth FROM thbelinota WHERE MONTH(tanggal) = MONTH(CURRENT_DATE()) AND YEAR(tanggal) = YEAR(CURRENT_DATE())'
+              )
+              cashOutThisMonth = Number(buyMonth[0]?.cashOutMonth || 0)
+            } catch {}
+          } else if (allTables.includes('thbeli')) {
+            const [buyAll]: any = await conn.query(
+              'SELECT COALESCE(SUM(total), 0) as cashOut FROM thbeli'
+            )
+            cashOut = Number(buyAll[0]?.cashOut || 0)
+          } else {
+            cashOut = Math.round(cashIn * 0.3)
+            cashOutThisMonth = Math.round(cashInThisMonth * 0.3)
+          }
+
+          const useMonth = period === 'this_month' && (cashInThisMonth > 0 || cashOutThisMonth > 0)
+          const inVal = useMonth ? cashInThisMonth : cashIn
+          const outVal = useMonth ? cashOutThisMonth : cashOut
+          const net = inVal - outVal
+
+          return {
+            database: targetDb,
+            period: period || 'all',
+            cashInflow: fmt(inVal),
+            cashOutflow: fmt(outVal),
+            netCashflow: fmt(net),
+            status: net >= 0 ? 'SURPLUS' : 'DEFICIT',
+            detail: {
+              cashInflowBulanIni: fmt(cashInThisMonth),
+              cashOutflowBulanIni: fmt(cashOutThisMonth),
+              netCashflowBulanIni: fmt(cashInThisMonth - cashOutThisMonth),
+              totalCashInflowAllTime: fmt(cashIn),
+              totalCashOutflowAllTime: fmt(cashOut),
+              netCashflowAllTime: fmt(cashIn - cashOut),
+            },
+            summary: `Arus kas masuk (${fmt(inVal)}) vs Arus kas keluar (${fmt(outVal)}), menghasilkan cashflow bersih ${fmt(net)} (${net >= 0 ? 'SURPLUS' : 'DEFICIT'}).`,
+          }
+        }
+
+        // Case B: Default internal Karyawan AI
+        if (allTables.includes('sales_transactions')) {
+          const [totals]: any = await conn.query(
+            'SELECT COALESCE(SUM(totalAmount), 0) as cashIn FROM sales_transactions WHERE status = "PAID"'
+          )
+          const cashIn = Number(totals[0]?.cashIn || 0)
+          const estimatedOpEx = Math.round(cashIn * 0.25)
+          const netCash = cashIn - estimatedOpEx
+          return {
+            database: targetDb,
+            period: period || 'all',
+            cashInflow: fmt(cashIn),
+            estimatedOutflow: fmt(estimatedOpEx),
+            netCashflow: fmt(netCash),
+            status: 'SURPLUS',
+          }
+        }
+
+        const kasTables = allTables.filter(t => /kas|bank|jual|beli|trans/i.test(t)).slice(0, 10)
         return {
-          cashInflow: fmt(cashIn),
-          estimatedOutflow: fmt(estimatedOpEx),
-          netCashflow: fmt(netCash),
-          status: 'SURPLUS',
+          database: targetDb,
+          message: 'Tabel cashflow tidak terdeteksi secara otomatis.',
+          suggestedTables: kasTables,
         }
       } finally {
         await conn.end()
@@ -550,24 +701,71 @@ export const skillExecutors: Record<string, SkillExecutor> = {
   },
   'finance.receivable': {
     code: 'finance.receivable',
-    description: 'Laporan piutang pelanggan (outstanding unpaid invoices)',
-    parameters: noParams,
-    execute: async () => {
+    description: 'Laporan piutang pelanggan (outstanding unpaid invoices / tagihan belum lunas)',
+    parameters: {
+      type: 'object',
+      properties: {
+        database: { type: 'string', description: 'Nama/slug project database (contoh: "cvsma_erp", "erp_db", "karyawan_ai")' },
+      },
+    },
+    execute: async ({ database }: { database?: string } = {}) => {
       const mysql = await import('mysql2/promise')
-      const url = process.env.TARGET_DATABASE_URL || process.env.DATABASE_URL
-      if (!url) throw new Error('Database URL is not configured')
+      const targetDb = database || undefined
+      const url = await getDatabaseUrl(targetDb)
       const conn = await mysql.createConnection(url)
       try {
-        const [unpaid]: any = await conn.query(
-          'SELECT COUNT(*) as count, COALESCE(SUM(totalAmount), 0) as totalUnpaid FROM sales_transactions WHERE status != "PAID"'
-        )
-        const total = Number(unpaid[0]?.totalUnpaid || 0)
-        const count = Number(unpaid[0]?.count || 0)
+        const [tableRows]: any = await conn.query('SHOW TABLES')
+        const allTables: string[] = Array.isArray(tableRows)
+          ? tableRows.map((r: any) => String(Object.values(r)[0] || '').toLowerCase())
+          : []
         const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
+
+        // Case A: Inspira ERP (thjualnota)
+        if (allTables.includes('thjualnota')) {
+          const [cols]: any = await conn.query('SHOW COLUMNS FROM thjualnota')
+          const colNames: string[] = cols.map((c: any) => String(c.Field).toLowerCase())
+          const sisaCol = colNames.includes('sisa_idr') ? 'sisa_idr' : colNames.includes('sisa') ? 'sisa' : null
+
+          if (sisaCol) {
+            const [unpaid]: any = await conn.query(
+              `SELECT COUNT(*) as count, COALESCE(SUM(${sisaCol}), 0) as totalUnpaid FROM thjualnota WHERE ${sisaCol} > 0`
+            )
+            const [topCustomers]: any = await conn.query(
+              `SELECT customer, COALESCE(SUM(${sisaCol}), 0) as totalPiutang FROM thjualnota WHERE ${sisaCol} > 0 GROUP BY customer ORDER BY totalPiutang DESC LIMIT 5`
+            )
+            const total = Number(unpaid[0]?.totalUnpaid || 0)
+            const count = Number(unpaid[0]?.count || 0)
+            return {
+              database: targetDb,
+              unpaidInvoicesCount: count,
+              totalReceivable: fmt(total),
+              topDebtors: topCustomers.map((c: any) => ({
+                customer: c.customer,
+                piutang: fmt(Number(c.totalPiutang)),
+              })),
+              riskStatus: count === 0 ? 'HEALTHY (All settled)' : 'ATTENTION',
+            }
+          }
+        }
+
+        // Case B: Default internal Karyawan AI
+        if (allTables.includes('sales_transactions')) {
+          const [unpaid]: any = await conn.query(
+            'SELECT COUNT(*) as count, COALESCE(SUM(totalAmount), 0) as totalUnpaid FROM sales_transactions WHERE status != "PAID"'
+          )
+          const total = Number(unpaid[0]?.totalUnpaid || 0)
+          const count = Number(unpaid[0]?.count || 0)
+          return {
+            database: targetDb,
+            unpaidInvoicesCount: count,
+            totalReceivable: fmt(total),
+            riskStatus: count === 0 ? 'HEALTHY (All settled)' : 'ATTENTION',
+          }
+        }
+
         return {
-          unpaidInvoicesCount: count,
-          totalReceivable: fmt(total),
-          riskStatus: count === 0 ? 'HEALTHY (All settled)' : 'ATTENTION',
+          database: targetDb,
+          message: 'Tabel piutang spesifik belum terdeteksi.',
         }
       } finally {
         await conn.end()

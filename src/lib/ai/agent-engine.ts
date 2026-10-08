@@ -199,11 +199,14 @@ ${skillsContext}
 
         const code = fnName.replace(/__/g, '.')
         const skill = availableSkills.find((s) => s.code === code)
+        const isEssential = essentialSkillCodes.includes(code)
         let output: any
         let status = 'SUCCESS'
         try {
-          if (!skill) throw new Error('Skill not permitted for this agent')
-          output = await getExecutor(code).execute(args)
+          if (!skill && !isEssential) throw new Error('Skill not permitted for this agent')
+          const executor = getExecutor(code)
+          if (!executor) throw new Error(`Skill ${code} executor not found`)
+          output = await executor.execute(args)
         } catch (e: any) {
           status = 'FAILED'
           output = { error: e.message }
