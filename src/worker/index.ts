@@ -1,3 +1,7 @@
+import dotenv from 'dotenv'
+dotenv.config({ path: '.env.local' })
+dotenv.config({ path: '.env' })
+
 import { createTaskWorker } from '@/lib/queue/task-queue'
 
 const worker = createTaskWorker()

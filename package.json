@@ -10,9 +10,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx --env-file=.env.local prisma/seed.ts",
-    "worker": "tsx --env-file=.env.local src/worker/index.ts",
-    "bot": "tsx --env-file=.env.local src/bot/polling.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "worker": "tsx src/worker/index.ts",
+    "bot": "tsx src/bot/polling.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

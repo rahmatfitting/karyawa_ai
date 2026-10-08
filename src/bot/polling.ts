@@ -1,3 +1,7 @@
+import dotenv from 'dotenv'
+dotenv.config({ path: '.env.local' })
+dotenv.config({ path: '.env' })
+
 import { Bot } from 'grammy'
 import { prisma } from '@/lib/prisma'
 import { dispatchToAgent } from '@/lib/ai/dispatcher'
