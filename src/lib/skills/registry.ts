@@ -40,7 +40,19 @@ export async function getDatabaseUrl(targetDb?: string): Promise<string> {
   const baseUrl = process.env.TARGET_DATABASE_URL || process.env.DATABASE_URL
   if (!baseUrl) throw new Error('TARGET_DATABASE_URL or DATABASE_URL is not configured')
   
-  if (!targetDb) return baseUrl
+  if (!targetDb) {
+    try {
+      const { prisma } = await import('@/lib/prisma')
+      const defaultMonitored = await prisma.monitoredDatabase.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'desc' },
+      })
+      if (defaultMonitored?.connectionUrl) {
+        return defaultMonitored.connectionUrl
+      }
+    } catch {}
+    return baseUrl
+  }
 
   // 1. If full mysql connection string is provided
   if (targetDb.startsWith('mysql://')) return targetDb
@@ -368,7 +380,7 @@ export const skillExecutors: Record<string, SkillExecutor> = {
     },
     execute: async ({ period, database }: { period?: string; database?: string } = {}) => {
       const mysql = await import('mysql2/promise')
-      const targetDb = database || 'karyawan_ai'
+      const targetDb = database || undefined
       const url = await getDatabaseUrl(targetDb)
       const conn = await mysql.createConnection(url)
       try {

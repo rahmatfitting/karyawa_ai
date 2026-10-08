@@ -91,9 +91,10 @@ Sistem Karyawan AI memiliki akses ke database projek berikut:
 ${dbsContext}
 
 PENTING UNTUK DATABASE & PROJEK:
-1. Jika user menanyakan tentang projek atau database (contoh: "cvsma_erp", "cvsma", "penjualan cvsma", dll), database tersebut TERSEDIA dan BISA diakses!
-2. JANGAN PERNAH mengatakan "proyek tidak ada" atau "tidak ada informasi proyek" jika namanya tercantum dalam Daftar Database di atas!
-3. Gunakan nama slug database tersebut sebagai parameter 'database' saat memanggil skill seperti finance.sales, database.list_tables, atau database.mysql_query!
+1. Database bisnis utama yang aktif saat ini: "${monitoredDbs[0]?.name || 'cvsma_erp'}" (${monitoredDbs[0]?.label || 'Database ERP'}).
+2. Jika user bertanya secara umum (contoh: "cek penjualan bulan ini", "berapa omset hari ini", "tampilkan transaksi terakhir") TANPA menyebut nama database, OTOMATIS langsung gunakan database utama: "${monitoredDbs[0]?.name || 'cvsma_erp'}"! JANGAN pernah bertanya balik "database mana" kepada user!
+3. Jika user menyebut nama database/projek secara spesifik, gunakan database yang diminta user.
+4. Gunakan nama slug database tersebut sebagai parameter 'database' saat memanggil skill seperti finance.sales, database.list_tables, atau database.mysql_query!
 
 == SKILLS YANG TERSEDIA ==
 ${skillsContext}
