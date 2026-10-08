@@ -54,12 +54,16 @@ export async function getDatabaseUrl(targetDb?: string): Promise<string> {
   // 3. Check custom MonitoredDatabase saved in database
   try {
     const { prisma } = await import('@/lib/prisma')
+    const clean = targetDb.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
     const rec = await prisma.monitoredDatabase.findFirst({
       where: {
         OR: [
           { name: targetDb.toLowerCase() },
+          { name: clean },
           { database: targetDb },
-          { label: targetDb },
+          { database: clean },
+          { name: { contains: clean } },
+          { label: { contains: targetDb } },
         ],
         isActive: true,
       },
@@ -354,12 +358,12 @@ export const skillExecutors: Record<string, SkillExecutor> = {
   },
   'finance.sales': {
     code: 'finance.sales',
-    description: 'Get sales report (total omset penjualan, jumlah transaksi, produk terlaris) dari database bisnis (karyawan_ai, erp_db)',
+    description: 'Get sales report (total omset penjualan, jumlah transaksi, produk terlaris) dari database bisnis (contoh: "cvsma_erp", "erp_db", "karyawan_ai", dll)',
     parameters: {
       type: 'object',
       properties: {
         period: { type: 'string', description: 'Periode waktu: "this_month", "all", "today"' },
-        database: { type: 'string', description: 'Nama project database (opsional: "erp_db", "karyawan_ai")' },
+        database: { type: 'string', description: 'Nama/slug project database (contoh: "cvsma_erp", "erp_db", "karyawan_ai")' },
       },
     },
     execute: async ({ period, database }: { period?: string; database?: string } = {}) => {
@@ -368,7 +372,15 @@ export const skillExecutors: Record<string, SkillExecutor> = {
       const url = await getDatabaseUrl(targetDb)
       const conn = await mysql.createConnection(url)
       try {
-        if (targetDb === 'erp_db') {
+        const [tableRows]: any = await conn.query('SHOW TABLES')
+        const allTables: string[] = Array.isArray(tableRows)
+          ? tableRows.map((r: any) => String(Object.values(r)[0] || '').toLowerCase())
+          : []
+
+        const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
+
+        // Case A: Tabel thjualnota (Format Standar ERP Inspira / SIA)
+        if (allTables.includes('thjualnota')) {
           const [totals]: any = await conn.query(
             'SELECT COUNT(*) as count, COALESCE(SUM(total_idr), 0) as totalSales, COALESCE(AVG(total_idr), 0) as avgOrder FROM thjualnota'
           )
@@ -378,9 +390,8 @@ export const skillExecutors: Record<string, SkillExecutor> = {
           const total = Number(totals[0]?.totalSales || 0)
           const count = Number(totals[0]?.count || 0)
           const avg = Number(totals[0]?.avgOrder || 0)
-          const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
           return {
-            database: 'erp_db',
+            database: targetDb,
             period: period || 'all',
             totalTransactions: count,
             totalSalesFormatted: fmt(total),
@@ -394,30 +405,66 @@ export const skillExecutors: Record<string, SkillExecutor> = {
           }
         }
 
-        const [totals]: any = await conn.query(
-          'SELECT COUNT(*) as count, COALESCE(SUM(totalAmount), 0) as totalSales, COALESCE(AVG(totalAmount), 0) as avgOrder FROM sales_transactions'
-        )
-        const [topProducts]: any = await conn.query(
-          'SELECT productName, category, SUM(quantity) as qtySold, SUM(totalAmount) as revenue FROM sales_transactions GROUP BY productName, category ORDER BY revenue DESC LIMIT 5'
-        )
-        const total = Number(totals[0]?.totalSales || 0)
-        const count = Number(totals[0]?.count || 0)
-        const avg = Number(totals[0]?.avgOrder || 0)
+        // Case B: Tabel thjual
+        if (allTables.includes('thjual')) {
+          const [totals]: any = await conn.query(
+            'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as totalSales, COALESCE(AVG(total), 0) as avgOrder FROM thjual'
+          )
+          const [recentInvoices]: any = await conn.query(
+            'SELECT kode, customer, total, tanggal FROM thjual ORDER BY tanggal DESC LIMIT 5'
+          )
+          const total = Number(totals[0]?.totalSales || 0)
+          const count = Number(totals[0]?.count || 0)
+          const avg = Number(totals[0]?.avgOrder || 0)
+          return {
+            database: targetDb,
+            period: period || 'all',
+            totalTransactions: count,
+            totalSalesFormatted: fmt(total),
+            averageOrderValue: fmt(Math.round(avg)),
+            recentInvoices: recentInvoices.map((i: any) => ({
+              kode: i.kode,
+              customer: i.customer,
+              total: fmt(Number(i.total)),
+              tanggal: i.tanggal,
+            })),
+          }
+        }
 
-        const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
+        // Case C: Tabel sales_transactions (Default internal Karyawan AI)
+        if (allTables.includes('sales_transactions')) {
+          const [totals]: any = await conn.query(
+            'SELECT COUNT(*) as count, COALESCE(SUM(totalAmount), 0) as totalSales, COALESCE(AVG(totalAmount), 0) as avgOrder FROM sales_transactions'
+          )
+          const [topProducts]: any = await conn.query(
+            'SELECT productName, category, SUM(quantity) as qtySold, SUM(totalAmount) as revenue FROM sales_transactions GROUP BY productName, category ORDER BY revenue DESC LIMIT 5'
+          )
+          const total = Number(totals[0]?.totalSales || 0)
+          const count = Number(totals[0]?.count || 0)
+          const avg = Number(totals[0]?.avgOrder || 0)
+          return {
+            database: targetDb,
+            period: period || 'this_month',
+            totalTransactions: count,
+            totalSales: total,
+            totalSalesFormatted: fmt(total),
+            averageOrderValue: fmt(Math.round(avg)),
+            topProducts: topProducts.map((p: any) => ({
+              name: p.productName,
+              category: p.category,
+              quantity: Number(p.qtySold),
+              revenue: fmt(Number(p.revenue)),
+            })),
+          }
+        }
+
+        // Case D: Fallback jika tabel custom
+        const relatedTables = allTables.filter(t => /jual|nota|order|sale|trans|invoice/i.test(t)).slice(0, 15)
         return {
           database: targetDb,
-          period: period || 'this_month',
-          totalTransactions: count,
-          totalSales: total,
-          totalSalesFormatted: fmt(total),
-          averageOrderValue: fmt(Math.round(avg)),
-          topProducts: topProducts.map((p: any) => ({
-            name: p.productName,
-            category: p.category,
-            quantity: Number(p.qtySold),
-            revenue: fmt(Number(p.revenue)),
-          })),
+          message: `Database "${targetDb}" terhubung (${allTables.length} tabel).`,
+          detectedTables: relatedTables,
+          hint: 'Gunakan skill database.mysql_query untuk menjalankan query SELECT spesifik pada tabel tersebut.',
         }
       } finally {
         await conn.end()

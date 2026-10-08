@@ -67,6 +67,16 @@ export async function runAgentEngine(options: AgentEngineOptions): Promise<Agent
       .map((as) => `- ${as.skill.name} (${as.skill.code}) [Risk: ${as.skill.riskLevel}]`)
       .join('\n')
 
+    // 5b. Fetch all connected project databases
+    const monitoredDbs = await prisma.monitoredDatabase.findMany({
+      where: { isActive: true },
+      select: { name: true, label: true, database: true, host: true },
+    })
+
+    const dbsContext = monitoredDbs.length > 0
+      ? monitoredDbs.map(d => `- Slug/Kode: "${d.name}" | Label: "${d.label}" | Database: "${d.database}" (Host: ${d.host})`).join('\n')
+      : 'Belum ada database eksternal terdaftar.'
+
     // 6. Determine if any HIGH/CRITICAL skill is needed
     const availableSkills = agent.agentSkills.map((as) => as.skill)
     
@@ -75,6 +85,15 @@ export async function runAgentEngine(options: AgentEngineOptions): Promise<Agent
 
 == MEMORY ==
 ${memoryContext || 'Tidak ada memory tersimpan'}
+
+== DAFTAR DATABASE PROJEK YANG TERHUBUNG ==
+Sistem Karyawan AI memiliki akses ke database projek berikut:
+${dbsContext}
+
+PENTING UNTUK DATABASE & PROJEK:
+1. Jika user menanyakan tentang projek atau database (contoh: "cvsma_erp", "cvsma", "penjualan cvsma", dll), database tersebut TERSEDIA dan BISA diakses!
+2. JANGAN PERNAH mengatakan "proyek tidak ada" atau "tidak ada informasi proyek" jika namanya tercantum dalam Daftar Database di atas!
+3. Gunakan nama slug database tersebut sebagai parameter 'database' saat memanggil skill seperti finance.sales, database.list_tables, atau database.mysql_query!
 
 == SKILLS YANG TERSEDIA ==
 ${skillsContext}
@@ -106,6 +125,27 @@ ${skillsContext}
           parameters: ex.parameters,
         },
       })
+    }
+
+    // Ensure database querying tools are available for finance, programmer, and manager agents
+    const essentialSkillCodes = (agent.code === 'finance' || agent.code === 'programmer' || agent.code === 'manager')
+      ? ['database.mysql_query', 'database.list_tables']
+      : []
+
+    for (const code of essentialSkillCodes) {
+      if (!tools.some(t => t.function.name === code.replace(/\./g, '__'))) {
+        const ex = getExecutor(code)
+        if (ex) {
+          tools.push({
+            type: 'function',
+            function: {
+              name: code.replace(/\./g, '__'),
+              description: ex.description,
+              parameters: ex.parameters,
+            },
+          })
+        }
+      }
     }
     tools.push({
       type: 'function',

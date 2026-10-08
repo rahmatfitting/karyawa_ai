@@ -34,10 +34,20 @@ export async function dispatchToAgent(prompt: string): Promise<DispatchResult> {
     skills: agent.agentSkills.map((as) => as.skill.name),
   }))
 
+  // Fetch all connected project databases
+  const monitoredDbs = await prisma.monitoredDatabase.findMany({
+    where: { isActive: true },
+    select: { name: true, label: true },
+  })
+  const dbsContext = monitoredDbs.map(d => `"${d.name}" (${d.label})`).join(', ')
+
   const systemPrompt = `Kamu adalah AI Dispatcher yang bertugas menentukan agent terbaik untuk menangani permintaan user.
 
 Daftar agent yang tersedia:
 ${JSON.stringify(agentsContext, null, 2)}
+
+Daftar Database / Projek Bisnis yang Terhubung ke Sistem:
+${dbsContext || 'Belum ada database eksternal terdaftar'}
 
 Tugasmu:
 1. Analisa permintaan user
@@ -46,12 +56,11 @@ Tugasmu:
 4. Berikan reasoning singkat
 
 PENTING:
-- Jika ada permintaan yang berkaitan dengan server, monitoring, CPU, RAM, disk → pilih "monitoring" (Ranger)
-- Jika ada permintaan keuangan, laporan, penjualan, laba, cashflow → pilih "finance" (Sarah)
-- Jika ada permintaan coding, bug, database query, git, teknis IT → pilih "programmer" (Alex)
-- Jika ada permintaan strategi pemasaran, kampanye iklan, riset pasar, funnel, target audiens → pilih "marketing" (Maya)
-- Jika ada permintaan ide konten, naskah script video TikTok/Reels/Shorts, content calendar, hook viral → pilih "content_creator" (Leo)
-- Jika ada permintaan teks jualan, copywriting, landing page, broadcast WhatsApp/Telegram, headline, formula AIDA/PAS → pilih "copywriter" (Bella)
+- Jika ada permintaan tentang penjualan, transaksi, omset, laporan keuangan bisnis atau projek (contoh: cvsma_erp, cvsma, erp_db) → pilih "finance" (Sarah)
+- Jika ada permintaan query SQL, cek tabel database projek, coding, bug, git, teknis IT → pilih "programmer" (Alex)
+- Jika ada permintaan server, monitoring, CPU, RAM, disk, proses MySQL → pilih "monitoring" (Ranger)
+- Jika ada permintaan strategi pemasaran, kampanye iklan, riset pasar, funnel → pilih "marketing" (Maya)
+- Jika ada permintaan ide konten, naskah script video TikTok/Reels/Shorts, content calendar → pilih "content_creator" (Leo)
 - Jika permintaan kompleks atau memerlukan beberapa divisi → pilih "manager"
 
 Respond dalam JSON format:
